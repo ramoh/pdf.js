@@ -1,5 +1,3 @@
-/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 /*
 Copyright 2014 Mozilla Foundation
 
@@ -33,13 +31,20 @@ chrome.storage.local.get(Features, function(features) {
     // Browser not upgraded, so the features did probably not change.
     return;
   }
+
+  // In case of a downgrade, the features must be tested again.
+  var lastVersion = /Chrome\/\d+\.0\.(\d+)/.exec(features.featureDetectLastUA);
+  lastVersion = lastVersion ? parseInt(lastVersion[1], 10) : 0;
+  var newVersion = /Chrome\/\d+\.0\.(\d+)/.exec(navigator.userAgent);
+  var isDowngrade = newVersion && parseInt(newVersion[1], 10) < lastVersion;
+
   var inconclusiveTestCount = 0;
 
-  if (!features.extensionSupportsFTP) {
+  if (isDowngrade || !features.extensionSupportsFTP) {
     features.extensionSupportsFTP = featureTestFTP();
   }
 
-  if (!features.webRequestRedirectUrl) {
+  if (isDowngrade || !features.webRequestRedirectUrl) {
     ++inconclusiveTestCount;
     // Relatively expensive (and asynchronous) test:
     featureTestRedirectOnHeadersReceived(function(result) {

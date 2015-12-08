@@ -1,5 +1,3 @@
-/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 /* Copyright 2014 Mozilla Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,7 +65,7 @@ var WebGLUtils = (function WebGLUtilsClosure() {
   }
 
   var currentGL, currentCanvas;
-  function generageGL() {
+  function generateGL() {
     if (currentGL) {
       return;
     }
@@ -125,7 +123,7 @@ var WebGLUtils = (function WebGLUtilsClosure() {
   function initSmaskGL() {
     var canvas, gl;
 
-    generageGL();
+    generateGL();
     canvas = currentCanvas;
     currentCanvas = null;
     gl = currentGL;
@@ -257,7 +255,7 @@ var WebGLUtils = (function WebGLUtilsClosure() {
   function initFiguresGL() {
     var canvas, gl;
 
-    generageGL();
+    generateGL();
     canvas = currentCanvas;
     currentCanvas = null;
     gl = currentGL;
@@ -360,7 +358,7 @@ var WebGLUtils = (function WebGLUtilsClosure() {
           for (var j = 0, jj = ps.length; j < jj; j++) {
             coords[pIndex] = coordsMap[ps[j]];
             coords[pIndex + 1] = coordsMap[ps[j] + 1];
-            colors[cIndex] = colorsMap[cs[i]];
+            colors[cIndex] = colorsMap[cs[j]];
             colors[cIndex + 1] = colorsMap[cs[j] + 1];
             colors[cIndex + 2] = colorsMap[cs[j] + 2];
             pIndex += 2;
@@ -406,6 +404,14 @@ var WebGLUtils = (function WebGLUtilsClosure() {
   }
 
   function cleanup() {
+    if (smaskCache && smaskCache.canvas) {
+      smaskCache.canvas.width = 0;
+      smaskCache.canvas.height = 0;
+    }
+    if (figuresCache && figuresCache.canvas) {
+      figuresCache.canvas.width = 0;
+      figuresCache.canvas.height = 0;
+    }
     smaskCache = null;
     figuresCache = null;
   }
@@ -417,7 +423,7 @@ var WebGLUtils = (function WebGLUtilsClosure() {
       }
       var enabled = false;
       try {
-        generageGL();
+        generateGL();
         enabled = !!currentGL;
       } catch (e) { }
       return shadow(this, 'isEnabled', enabled);

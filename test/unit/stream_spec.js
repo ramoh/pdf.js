@@ -1,5 +1,3 @@
-/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 /* globals expect, it, describe, beforeEach, Stream, PredictorStream, Dict */
 
 'use strict';
@@ -9,7 +7,7 @@ describe('stream', function() {
     this.addMatchers({
       toMatchTypedArray: function(expected) {
         var actual = this.actual;
-        if (actual.length != expected.length) {
+        if (actual.length !== expected.length) {
           return false;
         }
         for (var i = 0, ii = expected.length; i < ii; i++) {
@@ -41,4 +39,3 @@ describe('stream', function() {
     });
   });
 });
-

@@ -1,5 +1,3 @@
-/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 /* Copyright 2012 Mozilla Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +13,8 @@
  * limitations under the License.
  */
 /* globals bytesToString, DecryptStream, error, isInt, isName, Name,
-           PasswordException, PasswordResponses, stringToBytes */
+           PasswordException, PasswordResponses, stringToBytes, warn,
+           utf8StringToString */
 
 'use strict';
 
@@ -978,8 +977,18 @@ var AES128Cipher = (function AES128CipherClosure() {
     if (finalize) {
       // undo a padding that is described in RFC 2898
       var lastBlock = result[result.length - 1];
-      outputLength -= lastBlock[15];
-      result[result.length - 1] = lastBlock.subarray(0, 16 - lastBlock[15]);
+      var psLen = lastBlock[15];
+      if (psLen <= 16) {
+        for (i = 15, ii = 16 - psLen; i >= ii; --i) {
+          if (lastBlock[i] !== psLen) {
+            // Invalid padding, assume that the block has no padding.
+            psLen = 0;
+            break;
+          }
+        }
+        outputLength -= psLen;
+        result[result.length - 1] = lastBlock.subarray(0, 16 - psLen);
+      }
     }
     var output = new Uint8Array(outputLength);
     for (i = 0, j = 0, ii = result.length; i < ii; ++i, j += 16) {
@@ -1394,7 +1403,7 @@ var AES256Cipher = (function AES256CipherClosure() {
       if (bufferLength < 16) {
         continue;
       }
-      // buffer is full, encrypting
+      // buffer is full, decrypting
       var plain = decrypt256(buffer, this.key);
       // xor-ing the IV vector to get plain text
       for (j = 0; j < 16; ++j) {
@@ -1417,8 +1426,18 @@ var AES256Cipher = (function AES256CipherClosure() {
     if (finalize) {
       // undo a padding that is described in RFC 2898
       var lastBlock = result[result.length - 1];
-      outputLength -= lastBlock[15];
-      result[result.length - 1] = lastBlock.subarray(0, 16 - lastBlock[15]);
+      var psLen = lastBlock[15];
+      if (psLen <= 16) {
+        for (i = 15, ii = 16 - psLen; i >= ii; --i) {
+          if (lastBlock[i] !== psLen) {
+            // Invalid padding, assume that the block has no padding.
+            psLen = 0;
+            break;
+          }
+        }
+        outputLength -= psLen;
+        result[result.length - 1] = lastBlock.subarray(0, 16 - psLen);
+      }
     }
     var output = new Uint8Array(outputLength);
     for (i = 0, j = 0, ii = result.length; i < ii; ++i, j += 16) {
@@ -1741,9 +1760,10 @@ var CipherTransformFactory = (function CipherTransformFactoryClosure() {
       if (pdfAlgorithm.checkUserPassword(password, userValidationSalt,
                                          userPassword)) {
         return pdfAlgorithm.getUserKey(password, userKeySalt, userEncryption);
-      } else if (pdfAlgorithm.checkOwnerPassword(password, ownerValidationSalt,
-                                                 uBytes,
-                                                 ownerPassword)) {
+      } else if (password.length && pdfAlgorithm.checkOwnerPassword(password,
+                                                   ownerValidationSalt,
+                                                   uBytes,
+                                                   ownerPassword)) {
         return pdfAlgorithm.getOwnerKey(password, ownerKeySalt, uBytes,
                                         ownerEncryption);
       }
@@ -1898,6 +1918,14 @@ var CipherTransformFactory = (function CipherTransformFactoryClosure() {
     var fileIdBytes = stringToBytes(fileId);
     var passwordBytes;
     if (password) {
+      if (revision === 6) {
+        try {
+          password = utf8StringToString(password);
+        } catch (ex) {
+          warn('CipherTransformFactory: ' +
+               'Unable to convert UTF8 encoded password.');
+        }
+      }
       passwordBytes = stringToBytes(password);
     }
 
@@ -1947,7 +1975,7 @@ var CipherTransformFactory = (function CipherTransformFactoryClosure() {
       this.cf = dict.get('CF');
       this.stmf = dict.get('StmF') || identityName;
       this.strf = dict.get('StrF') || identityName;
-      this.eff = dict.get('EFF') || this.strf;
+      this.eff = dict.get('EFF') || this.stmf;
     }
   }
 
@@ -2002,7 +2030,7 @@ var CipherTransformFactory = (function CipherTransformFactoryClosure() {
 
   CipherTransformFactory.prototype = {
     createCipherTransform:
-      function CipherTransformFactory_createCipherTransform(num, gen) {
+        function CipherTransformFactory_createCipherTransform(num, gen) {
       if (this.algorithm === 4 || this.algorithm === 5) {
         return new CipherTransform(
           buildCipherConstructor(this.cf, this.stmf,

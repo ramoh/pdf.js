@@ -1,5 +1,3 @@
-/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 /*
 Copyright 2013 Mozilla Foundation
 
@@ -56,39 +54,6 @@ limitations under the License.
     }
   }
 
-  /**
-   * @param {string} url URL of PDF Viewer.
-   * @return {string|undefined} The percent-encoded URL of the (PDF) file.
-   */
-  function parseViewerURL(url) {
-    if (url.lastIndexOf(VIEWER_URL, 0) !== 0) {
-      // Does not even start with the correct URL. Bye!
-      return;
-    }
-    url = url.match(/[&?]file=([^&#]+)/);
-    if (url) {
-      url = url[1];
-      return url;
-    }
-  }
-
-  /**
-   * @param {number} tabId ID of tab where the page action will be shown
-   * @param {string} url URL to be displayed in page action
-   */
-  function showPageAction(tabId, displayUrl) {
-    var url = parseExtensionURL(displayUrl) || parseViewerURL(displayUrl);
-    if (url) {
-      chrome.pageAction.setPopup({
-        tabId: tabId,
-        popup: 'pageActionPopup.html?file=' + url
-      });
-      chrome.pageAction.show(tabId);
-    } else {
-      console.log('Unable to get PDF url from ' + displayUrl);
-    }
-  }
-
   // TODO(rob): Use declarativeWebRequest once declared URL-encoding is
   //            supported, see http://crbug.com/273589
   //            (or rewrite the query string parser in viewer.js to get it to
@@ -99,6 +64,10 @@ limitations under the License.
     var url = parseExtensionURL(details.url);
     if (url) {
       url = VIEWER_URL + '?file=' + url;
+      var i = details.url.indexOf('#');
+      if (i > 0) {
+        url += details.url.slice(i);
+      }
       console.log('Redirecting ' + details.url + ' to ' + url);
       return { redirectUrl: url };
     }
@@ -110,14 +79,9 @@ limitations under the License.
     })
   }, ['blocking']);
 
-  chrome.runtime.onMessage.addListener(function(message, sender) {
-    if (message === 'showPageAction' && sender.tab) {
-      showPageAction(sender.tab.id, sender.tab.url);
-    }
-  });
-
   // When session restore is used, viewer pages may be loaded before the
   // webRequest event listener is attached (= page not found).
+  // Or the extension could have been crashed (OOM), leaving a sad tab behind.
   // Reload these tabs.
   chrome.tabs.query({
     url: CRX_BASE_URL + '*:*'
@@ -127,4 +91,25 @@ limitations under the License.
     }
   });
   console.log('Set up extension URL router.');
+
+  Object.keys(localStorage).forEach(function(key) {
+    // The localStorage item is set upon unload by chromecom.js.
+    var parsedKey = /^unload-(\d+)-(true|false)-(.+)/.exec(key);
+    if (parsedKey) {
+      var timeStart = parseInt(parsedKey[1], 10);
+      var isHidden = parsedKey[2] === 'true';
+      var url = parsedKey[3];
+      if (Date.now() - timeStart < 3000) {
+        // Is it a new item (younger than 3 seconds)? Assume that the extension
+        // just reloaded, so restore the tab (work-around for crbug.com/511670).
+        chrome.tabs.create({
+          url: chrome.runtime.getURL('restoretab.html') +
+            '?' + encodeURIComponent(url) +
+            '#' + encodeURIComponent(localStorage.getItem(key)),
+          active: !isHidden
+        });
+      }
+      localStorage.removeItem(key);
+    }
+  });
 })();

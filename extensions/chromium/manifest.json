@@ -40,6 +40,14 @@
   "mime_types": [
     "application/pdf"
   ],
+  "storage": {
+    "managed_schema": "preferences_schema.json"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "chrome_style": true
+  },
+  "options_page": "options/options.html",
   "background": {
     "page": "pdfHandler.html"
   },
